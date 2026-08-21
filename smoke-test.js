@@ -19,7 +19,7 @@ function makeEl(id) {
     clientWidth: 640, width: 640, height: 360, offsetWidth: 640,
     classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
     addEventListener(ev, fn) { (listeners[ev] ||= []).push(fn); },
-    dispatch(ev, e) { (listeners[ev] || []).forEach(f => f(e || { target: el })); },
+    dispatch(ev, e) { return (listeners[ev] || []).map(f => f(e || { target: el })); },
     getContext: () => makeCtx(),
     closest: () => null,
     querySelectorAll: () => [],
@@ -32,10 +32,15 @@ global.document = {
   querySelectorAll: () => [],
   createElement: id => makeEl(id),
 };
-global.window = { addEventListener() {}, devicePixelRatio: 1 };
+let openedReportHtml = null;
+global.window = {
+  addEventListener() {}, devicePixelRatio: 1,
+  open: () => ({ document: { open() {}, write(html) { openedReportHtml = html; }, close() {} } }),
+};
 global.history = { replaceState() {} };
 global.location = { hash: "", href: "http://x/" };
-Object.defineProperty(global, "navigator", { value: { clipboard: { writeText: async () => {} } }, configurable: true });
+let copiedText = null;
+Object.defineProperty(global, "navigator", { value: { clipboard: { writeText: async t => { copiedText = t; } } }, configurable: true });
 global.CanvasRenderingContext2D = function () {};
 CanvasRenderingContext2D.prototype = {};
 global.Blob = class {};
@@ -88,4 +93,39 @@ const vG = ids.get("vGhcpCost").textContent;
 console.log("expected ghcp cost $15,030 rendered:", vG);
 if (vG !== "$15,030") { console.error("✗ ghcp cost mismatch"); fail++; }
 
-process.exit(fail ? 1 : 0);
+/* ---------- report export smoke tests ---------- */
+(async () => {
+  // PDF report: click btnPdf and verify the print window received a full report
+  ids.get("btnPdf").dispatch("click");
+  const pdfChecks = [
+    ["<!DOCTYPE html>", "report is a full HTML document"],
+    ["Copilot Studio Credit Estimate", "report title present"],
+    ["$1,414", "standard monthly cost in report"],
+    ["$15,030", "ghcp monthly cost in report"],
+    ["176.4K", "billable credits in report"],
+    ["window.print()", "print trigger present"],
+    ["Assumptions", "assumptions section present"],
+  ];
+  for (const [needle, label] of pdfChecks) {
+    const ok = openedReportHtml && openedReportHtml.includes(needle);
+    console.log((ok ? "✓" : "✗"), "pdf report:", label);
+    if (!ok) fail++;
+  }
+
+  // Copy report: click btnCopy and verify Markdown landed on the clipboard
+  await Promise.all(ids.get("btnCopy").dispatch("click"));
+  const mdChecks = [
+    ["# Copilot Studio Credit Estimate", "markdown H1 present"],
+    ["| Monthly cost | $1,414 | $15,030 |", "markdown cost row correct"],
+    ["| Credits per session / task | 49 | 310 (weighted) |", "markdown per-session row correct"],
+    ["## Assumptions", "markdown assumptions section present"],
+    ["| Active users / callers | 500 |", "markdown users assumption correct"],
+  ];
+  for (const [needle, label] of mdChecks) {
+    const ok = copiedText && copiedText.includes(needle);
+    console.log((ok ? "✓" : "✗"), "copy report:", label);
+    if (!ok) fail++;
+  }
+
+  process.exit(fail ? 1 : 0);
+})();
