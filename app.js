@@ -539,6 +539,166 @@ $("btnExport").addEventListener("click", () => {
   toast("✓ Estimate exported");
 });
 
+/* ---------- report export: PDF + copy/paste ---------- */
+const TIER_NAMES = { 0.1: "Basic (0.1 cr/1K tok)", 1.5: "Standard (1.5 cr/1K tok)", 10: "Premium (10 cr/1K tok)" };
+
+function reportModel() {
+  const c = compute(state);
+  const s = state;
+  const heavy = Math.max(0, 100 - s.gLight - s.gMedium);
+  const ratio = c.stdBuy.cost > 0 ? c.ghcpBuy.cost / c.stdBuy.cost : (c.ghcpBuy.cost > 0 ? Infinity : 1);
+  const ratioLabel = !isFinite(ratio) ? "∞×"
+    : ratio >= 1 ? (ratio >= 100 ? Math.round(ratio) + "× (GHCP costs more)" : ratio.toFixed(1) + "× (GHCP costs more)")
+    : (1 / Math.max(ratio, 1e-9)).toFixed(1) + "× (Standard costs more)";
+  return {
+    title: "Copilot Studio Credit Estimate",
+    subtitle: "Standard harness vs GitHub Copilot harness — monthly planning estimate",
+    generated: new Date().toISOString().slice(0, 16).replace("T", " ") + " UTC",
+    link: location.href,
+    ratioLabel,
+    verdict: verdictText(c, ratio),
+    comparison: [
+      ["Monthly sessions / tasks", fmtInt(c.totalSessions), fmtInt(c.totalSessions)],
+      ["Credits per session / task", fmtCr(c.stdPerSess), fmtCr(c.ghcpPerTask) + " (weighted)"],
+      ["Billable credits / month", fmtCr(c.stdBillableCredits), fmtCr(c.ghcpTotalCredits)],
+      ["Credits absorbed by M365 licenses", fmtCr(c.stdFreeCredits), "— (no inclusion)"],
+      ["Development-burn credits / month", "— (free until publish)", fmtCr(c.ghcpDevCredits)],
+      ["Best procurement", buyLabel(c.stdBuy), buyLabel(c.ghcpBuy)],
+      ["Cost per session / task", c.totalSessions ? fmtMoney(c.stdBuy.cost / c.totalSessions) : "$0", c.totalSessions ? fmtMoney(c.ghcpBuy.cost / c.totalSessions) : "$0"],
+      ["Monthly cost", fmtMoney(c.stdBuy.cost), fmtMoney(c.ghcpBuy.cost)],
+    ],
+    assumptions: [
+      ["Active users / callers", fmtInt(s.users)],
+      ["Sessions per user / month", fmtInt(s.sessions)],
+      ["Users with M365 Copilot license", s.m365 + "%"],
+      ["Std per-session mix: classic / generative / actions / graph", `${s.sClassic} / ${s.sGen} / ${s.sActions} / ${s.sGraph}`],
+      ["Std: agent flow actions per session", fmtInt(s.sFlow)],
+      ["Std: AI-tool tokens per session", `${s.sTokens}K @ ${TIER_NAMES[s.sTier] || s.sTier + " cr/1K tok"}`],
+      ["Std: reasoning tokens / content pages per session", `${s.sReason}K / ${s.sPages}`],
+      ["GHCP task mix: light / medium / heavy", `${s.gLight}% / ${s.gMedium}% / ${heavy}%`],
+      ["GHCP tier midpoints: light / medium / heavy", `${s.gLightMid} / ${s.gMediumMid} / ${s.gHeavyMid} cr`],
+      ["GHCP development burn", `${s.gMakers} maker${s.gMakers === 1 ? "" : "s"} × ${s.gTestRuns} test runs × ${s.gTestCr} cr`],
+      ["Pricing", `PAYG $${s.pPayg}/credit · pack $${s.pPack}/25K credits · ${s.pDisc}% discount`],
+    ],
+    disclaimer: "Planning estimate only — not a billing commitment. Verify rates against the current Microsoft Copilot Studio Licensing Guide.",
+  };
+}
+
+/* Markdown report — pastes cleanly into email, Teams, docs, GitHub */
+function reportMarkdown() {
+  const r = reportModel();
+  const lines = [];
+  lines.push(`# ${r.title}`);
+  lines.push("");
+  lines.push(`${r.subtitle}`);
+  lines.push(`Generated: ${r.generated}`);
+  lines.push("");
+  lines.push("## Comparison");
+  lines.push("");
+  lines.push("| | Standard harness | GitHub Copilot harness |");
+  lines.push("|---|---|---|");
+  r.comparison.forEach(row => lines.push(`| ${row[0]} | ${row[1]} | ${row[2]} |`));
+  lines.push("");
+  lines.push(`**Cost multiple:** ${r.ratioLabel}`);
+  lines.push("");
+  lines.push(`**Verdict:** ${r.verdict}`);
+  lines.push("");
+  lines.push("## Assumptions");
+  lines.push("");
+  lines.push("| Input | Value |");
+  lines.push("|---|---|");
+  r.assumptions.forEach(row => lines.push(`| ${row[0]} | ${row[1]} |`));
+  lines.push("");
+  lines.push(`Scenario link: ${r.link}`);
+  lines.push("");
+  lines.push(`> ${r.disclaimer}`);
+  lines.push("");
+  return lines.join("\n");
+}
+
+const escHtml = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/* Self-contained, print-optimized HTML report */
+function reportHtml() {
+  const r = reportModel();
+  const tableRows = (rows, head) => `
+    <table>
+      <thead><tr>${head.map(h => `<th>${escHtml(h)}</th>`).join("")}</tr></thead>
+      <tbody>${rows.map(row => `<tr>${row.map((cell, i) => i === 0 ? `<th scope="row">${escHtml(cell)}</th>` : `<td>${escHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody>
+    </table>`;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>${escHtml(r.title)}</title>
+<style>
+  @page { margin: 18mm; }
+  * { box-sizing: border-box; }
+  body { font: 13px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1a1f36; margin: 32px auto; max-width: 760px; padding: 0 16px; }
+  h1 { font-size: 22px; margin: 0 0 2px; }
+  h2 { font-size: 15px; margin: 26px 0 8px; border-bottom: 2px solid #e2e6f0; padding-bottom: 4px; }
+  .sub { color: #5a6379; margin: 0 0 2px; }
+  .meta { color: #8a91a5; font-size: 11.5px; margin: 0 0 6px; }
+  table { border-collapse: collapse; width: 100%; margin: 6px 0; }
+  th, td { border: 1px solid #d7dce8; padding: 6px 10px; text-align: left; vertical-align: top; }
+  thead th { background: #f1f4fa; font-size: 12px; }
+  tbody th[scope="row"] { font-weight: 600; background: #fafbfe; width: 44%; }
+  tr.total th, tr.total td { font-weight: 700; background: #eef6ff; }
+  .verdict { background: #f6f8fc; border-left: 4px solid #4f7cff; padding: 10px 14px; margin: 12px 0; }
+  .disclaimer { color: #8a91a5; font-size: 11px; margin-top: 22px; border-top: 1px solid #e2e6f0; padding-top: 10px; }
+  a { color: #2b5fd9; word-break: break-all; }
+  .noprint { margin: 14px 0; }
+  .noprint button { font: inherit; padding: 8px 16px; cursor: pointer; }
+  @media print { .noprint { display: none; } body { margin: 0; } }
+</style>
+</head>
+<body>
+<h1>${escHtml(r.title)}</h1>
+<p class="sub">${escHtml(r.subtitle)}</p>
+<p class="meta">Generated ${escHtml(r.generated)}</p>
+<div class="noprint"><button onclick="window.print()">🖨 Print / Save as PDF</button></div>
+<h2>Comparison</h2>
+${tableRows(r.comparison, ["", "🧱 Standard harness", "🐙 GitHub Copilot harness"]).replace(/<tr><th scope="row">Monthly cost/, '<tr class="total"><th scope="row">Monthly cost')}
+<p><b>Cost multiple:</b> ${escHtml(r.ratioLabel)}</p>
+<div class="verdict"><b>Verdict:</b> ${escHtml(r.verdict)}</div>
+<h2>Assumptions</h2>
+${tableRows(r.assumptions, ["Input", "Value"])}
+<h2>Scenario link</h2>
+<p><a href="${escHtml(r.link)}">${escHtml(r.link)}</a></p>
+<p class="disclaimer">${escHtml(r.disclaimer)}</p>
+<script>window.addEventListener("load", () => setTimeout(() => window.print(), 250));<\/script>
+</body>
+</html>`;
+}
+
+$("btnPdf").addEventListener("click", () => {
+  saveHash();
+  const w = window.open("", "_blank", "noopener");
+  if (!w) { toast("Pop-up blocked — allow pop-ups to export the PDF report"); return; }
+  w.document.open();
+  w.document.write(reportHtml());
+  w.document.close();
+  toast("✓ Report opened — use Print → Save as PDF");
+});
+
+$("btnCopy").addEventListener("click", async () => {
+  saveHash();
+  const md = reportMarkdown();
+  try {
+    await navigator.clipboard.writeText(md);
+    toast("✓ Report copied — paste anywhere (Markdown)");
+  } catch {
+    // clipboard unavailable (permissions / non-secure context) — download instead
+    const blob = new Blob([md], { type: "text/markdown" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "copilot-studio-estimate.md";
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast("Clipboard unavailable — report downloaded as Markdown");
+  }
+});
+
 /* roundRect polyfill for older browsers */
 if (!CanvasRenderingContext2D.prototype.roundRect) {
   CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
