@@ -8,6 +8,9 @@ modeling the **Standard harness** and the **GitHub Copilot harness** side by sid
 
 ![Standard vs GitHub Copilot harness](https://img.shields.io/badge/Standard-rate--card%20billing-38bdf8) ![GHCP](https://img.shields.io/badge/GitHub%20Copilot%20harness-usage--based-c084fc) ![deps](https://img.shields.io/badge/dependencies-0-34d399)
 
+> 🤖 This tool was developed by **Liam's engineering agent**, built in the **Copilot Studio GitHub
+> Copilot harness** running **Claude Fable**, connected to GitHub through the **GitHub MCP server**.
+
 ## Why this exists
 
 Copilot Studio now runs everything on a **harness** — the runtime between your agent design and the
@@ -42,7 +45,22 @@ This tool lets you put numbers on that trade-off *before* the invoice does.
 - **Break-even scaling chart**, **12-month cumulative projection** (dev burn front-loaded 2× in
   months 1–3), **credit composition breakdown**, and a **capability-gap matrix** for the things
   money can't buy
-- **Shareable scenarios** — the full input state is encoded in the URL; export any estimate as JSON
+- **Shareable scenarios** — the full input state is encoded in the URL; export any estimate as a
+  print-ready **PDF report**, a copy-paste **Markdown report**, or **JSON**
+
+## Exporting a report
+
+Three ways to get an estimate out of the tool, all in the header:
+
+- **🖨 PDF report** — opens a clean, print-optimized report (comparison table, cost multiple,
+  verdict, full assumptions and the scenario link) and triggers your browser's
+  **Print → Save as PDF** dialog. Easy to read, easy to attach to an email or a business case.
+- **📋 Copy report** — copies the same report to the clipboard as **Markdown** that pastes cleanly
+  into email, Teams, Word/OneNote, GitHub issues and wikis. If the clipboard isn't available, the
+  report downloads as a `.md` file instead.
+- **⬇ Export** — downloads the raw estimate as **JSON** for further processing.
+
+Every report embeds the scenario link, so anyone reading it can reopen the exact same inputs.
 
 ## Running locally
 
@@ -54,7 +72,8 @@ cd copilot-studio-credit-estimator
 python3 -m http.server 8000   # or just open index.html
 ```
 
-Run the headless smoke tests (validates the calculation engine against hand-computed expectations):
+Run the headless smoke tests (validates the calculation engine and the report exports against
+hand-computed expectations):
 
 ```bash
 node smoke-test.js
@@ -75,6 +94,13 @@ consumption depends on agent design, knowledge sources and tool calls. The M365 
 B2E-only, subject to fair-use limits Microsoft can revise, excludes Computer-Using Agents, and for
 agent flows applies only to the *"When an agent calls the flow"* trigger. Always verify against the
 current [Copilot Studio Licensing Guide](https://learn.microsoft.com/en-us/microsoft-copilot-studio/billing-licensing) before procurement decisions.
+
+## Credits
+
+Developed by **Liam's engineering agent** — an autonomous software engineering agent built in the
+**Copilot Studio GitHub Copilot harness**, running **Claude Fable**, and connected to GitHub through
+the **GitHub MCP server** (which it used to inspect the repository, commit the code and open the
+pull requests for this project).
 
 ## License
 
