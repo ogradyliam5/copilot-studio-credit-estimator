@@ -30,8 +30,7 @@
     <div class="header-actions">
       <button id="btnShare" class="btn btn-ghost" title="Copy a shareable link that encodes this exact scenario">🔗 Share scenario</button>
       <button id="btnPdf" class="btn btn-ghost" title="Open a clean, print-optimized report — use your browser's Print → Save as PDF">🖨 PDF report</button>
-      <button id="btnCopy" class="btn btn-ghost" title="Copy a readable Markdown report to the clipboard — pastes cleanly into email, Teams, docs and GitHub">📋 Copy report</button>
-      <button id="btnExport" class="btn btn-ghost" title="Download estimate as JSON">⬇ Export</button>
+      <button id="btnCopy" class="btn btn-ghost" title="Copy the report as Markdown — pastes cleanly into email, Teams, docs and GitHub">📋 Copy Markdown</button>
       <a class="btn btn-ghost" href="https://github.com/ogradyliam5/copilot-studio-credit-estimator" target="_blank" rel="noopener">★ GitHub</a>
     </div>
   </div>
@@ -79,8 +78,8 @@
         <div class="range-row"><input type="range" id="inSessions" min="1" max="200" step="1" value="12"><input type="number" id="inSessionsN" min="1" max="10000" value="12"></div>
       </div>
       <div class="field">
-        <label for="inM365">% users with M365 Copilot license <span class="hint" data-tip="Employee-facing (B2E) usage of Standard-harness agents by Microsoft 365 Copilot licensed users is included at no charge (fair-use limits apply). It does NOT apply to the GitHub Copilot harness — that bills all usage regardless of licensing.">?</span></label>
-        <div class="range-row"><input type="range" id="inM365" min="0" max="100" step="1" value="20"><input type="number" id="inM365N" min="0" max="100" value="20"><span class="unit">%</span></div>
+        <label for="inM365">Users with M365 Copilot license <span class="hint" data-tip="How many of the active users hold a Microsoft 365 Copilot license. Employee-facing (B2E) usage of Standard-harness agents by licensed users is included at no charge (fair-use limits apply). It does NOT apply to the GitHub Copilot harness — that bills all usage regardless of licensing. Capped at the number of active users.">?</span></label>
+        <div class="range-row"><input type="range" id="inM365" min="0" max="20000" step="1" value="200"><input type="number" id="inM365N" min="0" max="1000000" value="200"><span class="unit">users</span></div>
       </div>
     </div>
     <p class="note" id="volumeNote"></p>
@@ -99,23 +98,23 @@
       <h3 class="sub-title">Per-session feature mix</h3>
       <div class="feature-rows" id="stdRows">
         <div class="feature-row">
-          <label>Classic answers <em>1 cr</em> <span class="hint" data-tip="Predefined, manually authored responses. 1 Copilot Credit each.">?</span></label>
+          <label>Classic answers <em id="emClassic">1 cr</em> <span class="hint" data-tip="Predefined, manually authored responses. 1 Copilot Credit each at list rates.">?</span></label>
           <div class="range-row"><input type="range" id="sClassic" min="0" max="20" step="1" value="2"><input type="number" id="sClassicN" min="0" max="100" value="2"></div>
         </div>
         <div class="feature-row">
-          <label>Generative answers <em>2 cr</em> <span class="hint" data-tip="AI-generated responses over knowledge sources. 2 Copilot Credits each.">?</span></label>
+          <label>Generative answers <em id="emGen">2 cr</em> <span class="hint" data-tip="AI-generated responses over knowledge sources. 2 Copilot Credits each at list rates.">?</span></label>
           <div class="range-row"><input type="range" id="sGen" min="0" max="20" step="1" value="3"><input type="number" id="sGenN" min="0" max="100" value="3"></div>
         </div>
         <div class="feature-row">
-          <label>Agent actions <em>5 cr</em> <span class="hint" data-tip="Triggers, deep-reasoning steps, topic transitions, connector/tool calls in generative orchestration — and Computer-Using Agents. 5 Copilot Credits each.">?</span></label>
+          <label>Agent actions <em id="emActions">5 cr</em> <span class="hint" data-tip="Triggers, deep-reasoning steps, topic transitions, connector/tool calls in generative orchestration — and Computer-Using Agents. 5 Copilot Credits each at list rates.">?</span></label>
           <div class="range-row"><input type="range" id="sActions" min="0" max="20" step="1" value="2"><input type="number" id="sActionsN" min="0" max="100" value="2"></div>
         </div>
         <div class="feature-row">
-          <label>Tenant graph grounding <em>10 cr</em> <span class="hint" data-tip="RAG over tenant-wide Microsoft Graph incl. connector data. 10 Copilot Credits per grounded message.">?</span></label>
+          <label>Tenant graph grounding <em id="emGraph">10 cr</em> <span class="hint" data-tip="RAG over tenant-wide Microsoft Graph incl. connector data. 10 Copilot Credits per grounded message at list rates.">?</span></label>
           <div class="range-row"><input type="range" id="sGraph" min="0" max="10" step="1" value="1"><input type="number" id="sGraphN" min="0" max="100" value="1"></div>
         </div>
         <div class="feature-row">
-          <label>Agent flow actions <em>13 cr / 100</em> <span class="hint" data-tip="Deterministic flow steps. 13 Copilot Credits per 100 actions. Free-for-M365 only via the 'When an agent calls the flow' trigger.">?</span></label>
+          <label>Agent flow actions <em id="emFlow">13 cr / 100</em> <span class="hint" data-tip="Deterministic flow steps. 13 Copilot Credits per 100 actions at list rates. Free-for-M365 only via the 'When an agent calls the flow' trigger.">?</span></label>
           <div class="range-row"><input type="range" id="sFlow" min="0" max="500" step="10" value="0"><input type="number" id="sFlowN" min="0" max="100000" value="0"></div>
         </div>
         <div class="feature-row">
@@ -131,11 +130,11 @@
           </div>
         </div>
         <div class="feature-row">
-          <label>Reasoning-model tokens (K) <span class="hint" data-tip="Reasoning models double-bill: feature rate PLUS premium AI tools at 10 credits per 1K tokens. Enter reasoning token volume per session in thousands.">?</span></label>
+          <label>Reasoning-model tokens (K) <em id="emReason">+10 cr / 1K</em> <span class="hint" data-tip="Reasoning models double-bill: feature rate PLUS premium AI tools at 10 credits per 1K tokens at list rates. Enter reasoning token volume per session in thousands.">?</span></label>
           <div class="range-row"><input type="range" id="sReason" min="0" max="100" step="1" value="0"><input type="number" id="sReasonN" min="0" max="10000" value="0"><span class="unit">K</span></div>
         </div>
         <div class="feature-row">
-          <label>Content processing pages <em>8 cr / page</em> <span class="hint" data-tip="Intelligent document processing. 8 Copilot Credits per page.">?</span></label>
+          <label>Content processing pages <em id="emPages">8 cr / page</em> <span class="hint" data-tip="Intelligent document processing. 8 Copilot Credits per page at list rates.">?</span></label>
           <div class="range-row"><input type="range" id="sPages" min="0" max="50" step="1" value="0"><input type="number" id="sPagesN" min="0" max="10000" value="0"></div>
         </div>
       </div>
@@ -279,8 +278,8 @@
         <div id="packOpt" class="pack-opt"></div>
       </div>
       <div class="chart-card">
-        <h3>12-month projection <span class="hint" data-tip="Cumulative annual spend at current volumes, including GitHub Copilot harness dev burn front-loaded in months 1–3 at 2× (build phase) then steady-state.">?</span></h3>
-        <canvas id="chartYear" width="640" height="360"></canvas>
+        <h3>Build phase vs steady state <span class="hint" data-tip="What one month costs while you're still building &amp; testing (before launch) vs a typical month in production. Standard-harness authoring is free until publish; the GitHub Copilot harness meters development from the first build action and keeps burning maker test credits after launch (lighter segment).">?</span></h3>
+        <canvas id="chartPhase" width="640" height="360"></canvas>
       </div>
     </div>
   </section>
@@ -303,22 +302,35 @@
   </section>
 
   <!-- ============ RATE CARD ============ -->
-  <section class="panel">
+  <section class="panel" id="rateCardPanel">
     <h2 class="panel-title"><span class="chip">6</span> The rate card, memorized for you</h2>
-    <div class="rate-grid">
-      <div class="rate-card"><b>1</b><span>Classic answer</span></div>
-      <div class="rate-card"><b>2</b><span>Generative answer</span></div>
-      <div class="rate-card"><b>5</b><span>Agent action</span></div>
-      <div class="rate-card"><b>10</b><span>Tenant graph grounding</span></div>
-      <div class="rate-card"><b>13<i>/100</i></b><span>Agent flow actions</span></div>
-      <div class="rate-card"><b>8<i>/page</i></b><span>Content processing</span></div>
-      <div class="rate-card"><b>0.1–10<i>/1K tok</i></b><span>AI tools (basic→premium)</span></div>
-      <div class="rate-card"><b>10<i>/1K tok</i></b><span>Reasoning surcharge</span></div>
-      <div class="rate-card"><b>10–75<i>/min</i></b><span>Voice tiers</span></div>
-      <div class="rate-card ghcp-rate"><b>100–300</b><span>GHCP light task</span></div>
-      <div class="rate-card ghcp-rate"><b>300–500</b><span>GHCP medium task</span></div>
-      <div class="rate-card ghcp-rate"><b>500+</b><span>GHCP heavy task</span></div>
+    <div class="rate-toolbar">
+      <button id="btnUnlockRates" class="btn" title="Rates are locked to Microsoft's published list values so they can't be changed accidentally. Unlock only if the published rates change.">🔒 Unlock to edit</button>
+      <button id="btnResetRates" class="btn" hidden>↺ Reset to list rates</button>
+      <span id="ratesWarn" class="rates-warn" hidden>⚠ Custom rates in effect — this estimate no longer reflects Microsoft's published list rates.</span>
     </div>
+
+    <h3 class="rate-group-title std-group">🧱 Standard harness — fixed per-feature rates (credits)</h3>
+    <div class="rate-grid std-rates">
+      <div class="rate-card"><b><input type="number" class="rate-input" id="rClassic" min="0" step="0.1" value="1" disabled></b><span>Classic answer</span></div>
+      <div class="rate-card"><b><input type="number" class="rate-input" id="rGen" min="0" step="0.1" value="2" disabled></b><span>Generative answer</span></div>
+      <div class="rate-card"><b><input type="number" class="rate-input" id="rActions" min="0" step="0.1" value="5" disabled></b><span>Agent action</span></div>
+      <div class="rate-card"><b><input type="number" class="rate-input" id="rGraph" min="0" step="0.1" value="10" disabled></b><span>Tenant graph grounding</span></div>
+      <div class="rate-card"><b><input type="number" class="rate-input" id="rFlow" min="0" step="0.1" value="13" disabled><i>/100</i></b><span>Agent flow actions</span></div>
+      <div class="rate-card"><b><input type="number" class="rate-input" id="rPages" min="0" step="0.1" value="8" disabled><i>/page</i></b><span>Content processing</span></div>
+      <div class="rate-card"><b><input type="number" class="rate-input" id="rReason" min="0" step="0.1" value="10" disabled><i>/1K tok</i></b><span>Reasoning surcharge</span></div>
+      <div class="rate-card"><b>0.1–10<i>/1K tok</i></b><span>AI tools (basic→premium)</span></div>
+      <div class="rate-card"><b>10–75<i>/min</i></b><span>Voice tiers</span></div>
+    </div>
+
+    <h3 class="rate-group-title ghcp-group">🐙 GitHub Copilot harness — usage-based, credits per task (planning midpoints)</h3>
+    <div class="rate-grid ghcp-rates">
+      <div class="rate-card ghcp-rate"><b><input type="number" class="rate-input" id="rgLightMid" min="0" step="10" value="200" disabled></b><span>Light task · published range 100–300</span></div>
+      <div class="rate-card ghcp-rate"><b><input type="number" class="rate-input" id="rgMediumMid" min="0" step="10" value="400" disabled></b><span>Medium task · published range 300–500</span></div>
+      <div class="rate-card ghcp-rate"><b><input type="number" class="rate-input" id="rgHeavyMid" min="0" step="10" value="700" disabled></b><span>Heavy task · published range 500+</span></div>
+    </div>
+
+    <p class="note">The two harnesses don't share a billing model: the Standard harness bills a fixed, deterministic rate per feature, while the GitHub Copilot harness bills whatever a task actually consumes — tokens, tools, knowledge, MCPs and the harness itself — so its cards are planning midpoints inside Microsoft's published ranges. Unlock only if the published rates change; edits apply to every calculation on this page and are flagged in exported reports.</p>
   </section>
 
   <section class="panel disclaimer">

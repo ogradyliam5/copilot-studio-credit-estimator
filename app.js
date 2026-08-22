@@ -19,23 +19,31 @@
 const $ = id => document.getElementById(id);
 const PACK_CREDITS = 25000;
 
+/* ---------- rate card (editable, locked by default) ---------- */
+const RATE_DEFAULTS = {
+  rClassic: 1, rGen: 2, rActions: 5, rGraph: 10,
+  rFlow: 13, rPages: 8, rReason: 10,
+};
+const MID_DEFAULTS = { gLightMid: 200, gMediumMid: 400, gHeavyMid: 700 };
+
 /* ---------- state ---------- */
 const state = {
-  users: 500, sessions: 12, m365: 20,
+  users: 500, sessions: 12, m365Users: 100,
   sClassic: 2, sGen: 3, sActions: 2, sGraph: 1, sFlow: 0,
   sTokens: 0, sTier: 1.5, sReason: 0, sPages: 0,
   gLight: 70, gMedium: 25,
   gLightMid: 200, gMediumMid: 400, gHeavyMid: 700,
   gMakers: 2, gTestRuns: 60, gTestCr: 150,
   pPayg: 0.01, pPack: 200, pDisc: 0,
+  ...RATE_DEFAULTS,
 };
 
 const PRESETS = {
-  faq:        { users: 2000, sessions: 8,  m365: 0,  sClassic: 5, sGen: 1, sActions: 0, sGraph: 0, sFlow: 0, sTokens: 0, sTier: 0.1, sReason: 0, sPages: 0, gLight: 95, gMedium: 5,  gMakers: 1, gTestRuns: 30,  gTestCr: 120 },
-  support:    { users: 900,  sessions: 15, m365: 0,  sClassic: 2, sGen: 4, sActions: 2, sGraph: 0, sFlow: 20, sTokens: 2, sTier: 1.5, sReason: 0, sPages: 0, gLight: 70, gMedium: 25, gMakers: 2, gTestRuns: 60,  gTestCr: 150 },
-  employee:   { users: 500,  sessions: 12, m365: 40, sClassic: 1, sGen: 4, sActions: 2, sGraph: 3, sFlow: 0,  sTokens: 0, sTier: 1.5, sReason: 0, sPages: 0, gLight: 60, gMedium: 30, gMakers: 2, gTestRuns: 60,  gTestCr: 150 },
-  autonomous: { users: 1,    sessions: 3000, m365: 0, sClassic: 0, sGen: 1, sActions: 4, sGraph: 0, sFlow: 60, sTokens: 1, sTier: 1.5, sReason: 0, sPages: 2, gLight: 40, gMedium: 45, gMakers: 2, gTestRuns: 80, gTestCr: 200 },
-  frontier:   { users: 200,  sessions: 20, m365: 30, sClassic: 0, sGen: 4, sActions: 5, sGraph: 2, sFlow: 0,  sTokens: 4, sTier: 10, sReason: 8, sPages: 3, gLight: 20, gMedium: 45, gMakers: 3, gTestRuns: 120, gTestCr: 300 },
+  faq:        { users: 2000, sessions: 8,  m365Users: 0,   sClassic: 5, sGen: 1, sActions: 0, sGraph: 0, sFlow: 0, sTokens: 0, sTier: 0.1, sReason: 0, sPages: 0, gLight: 95, gMedium: 5,  gMakers: 1, gTestRuns: 30,  gTestCr: 120 },
+  support:    { users: 900,  sessions: 15, m365Users: 0,   sClassic: 2, sGen: 4, sActions: 2, sGraph: 0, sFlow: 20, sTokens: 2, sTier: 1.5, sReason: 0, sPages: 0, gLight: 70, gMedium: 25, gMakers: 2, gTestRuns: 60,  gTestCr: 150 },
+  employee:   { users: 500,  sessions: 12, m365Users: 200, sClassic: 1, sGen: 4, sActions: 2, sGraph: 3, sFlow: 0,  sTokens: 0, sTier: 1.5, sReason: 0, sPages: 0, gLight: 60, gMedium: 30, gMakers: 2, gTestRuns: 60,  gTestCr: 150 },
+  autonomous: { users: 1,    sessions: 3000, m365Users: 0, sClassic: 0, sGen: 1, sActions: 4, sGraph: 0, sFlow: 60, sTokens: 1, sTier: 1.5, sReason: 0, sPages: 2, gLight: 40, gMedium: 45, gMakers: 2, gTestRuns: 80, gTestCr: 200 },
+  frontier:   { users: 200,  sessions: 20, m365Users: 60,  sClassic: 0, sGen: 4, sActions: 5, sGraph: 2, sFlow: 0,  sTokens: 4, sTier: 10, sReason: 8, sPages: 3, gLight: 20, gMedium: 45, gMakers: 3, gTestRuns: 120, gTestCr: 300 },
 };
 
 /* ---------- formatting ---------- */
@@ -50,14 +58,14 @@ function fmtMoney(n) {
 
 /* ---------- core model ---------- */
 function stdPerSessionCredits(s) {
-  return s.sClassic * 1
-       + s.sGen * 2
-       + s.sActions * 5
-       + s.sGraph * 10
-       + s.sFlow * 13 / 100
+  return s.sClassic * s.rClassic
+       + s.sGen * s.rGen
+       + s.sActions * s.rActions
+       + s.sGraph * s.rGraph
+       + s.sFlow * s.rFlow / 100
        + s.sTokens * s.sTier
-       + s.sReason * 10
-       + s.sPages * 8;
+       + s.sReason * s.rReason
+       + s.sPages * s.rPages;
 }
 
 function ghcpPerTaskCredits(s) {
@@ -65,9 +73,13 @@ function ghcpPerTaskCredits(s) {
   return (s.gLight * s.gLightMid + s.gMedium * s.gMediumMid + heavy * s.gHeavyMid) / 100;
 }
 
+function licensedUsers(s) {
+  return Math.min(s.m365Users, s.users);
+}
+
 function compute(s) {
   const totalSessions = s.users * s.sessions;
-  const unlicensedShare = 1 - s.m365 / 100;
+  const unlicensedShare = s.users > 0 ? 1 - licensedUsers(s) / s.users : 1;
 
   // Standard harness
   const stdPerSess = stdPerSessionCredits(s);
@@ -86,7 +98,7 @@ function compute(s) {
   const packPrice = s.pPack * disc;
 
   return {
-    totalSessions, stdPerSess, stdTotalCredits, stdBillableCredits, stdFreeCredits,
+    totalSessions, unlicensedShare, stdPerSess, stdTotalCredits, stdBillableCredits, stdFreeCredits,
     ghcpPerTask, ghcpRuntimeCredits, ghcpDevCredits, ghcpTotalCredits,
     paygRate, packPrice,
     stdBuy: bestBuy(stdBillableCredits, paygRate, packPrice),
@@ -126,15 +138,29 @@ function bindPair(rangeId, numId, key, opts = {}) {
   n.addEventListener("input", () => set(n.value));
   return set;
 }
+
+/* number-only inputs (incl. rate card + mirrored GHCP midpoints) */
+const NUM_BINDINGS = {
+  gLightMid: "gLightMid", gMediumMid: "gMediumMid", gHeavyMid: "gHeavyMid",
+  pPayg: "pPayg", pPack: "pPack",
+  rClassic: "rClassic", rGen: "rGen", rActions: "rActions", rGraph: "rGraph",
+  rFlow: "rFlow", rPages: "rPages", rReason: "rReason",
+  rgLightMid: "gLightMid", rgMediumMid: "gMediumMid", rgHeavyMid: "gHeavyMid",
+};
 function bindNum(numId, key) {
   const n = $(numId);
-  n.addEventListener("input", () => { state[key] = +n.value || 0; recalc(); });
+  n.addEventListener("input", () => { state[key] = +n.value || 0; syncNumInputs(numId); recalc(); });
+}
+function syncNumInputs(skipId) {
+  for (const [id, key] of Object.entries(NUM_BINDINGS)) {
+    if (id !== skipId) $(id).value = state[key];
+  }
 }
 
 const setters = {};
-setters.users    = bindPair("inUsers", "inUsersN", "users");
-setters.sessions = bindPair("inSessions", "inSessionsN", "sessions");
-setters.m365     = bindPair("inM365", "inM365N", "m365");
+setters.users     = bindPair("inUsers", "inUsersN", "users", { onChange: clampM365 });
+setters.sessions  = bindPair("inSessions", "inSessionsN", "sessions");
+setters.m365Users = bindPair("inM365", "inM365N", "m365Users", { onChange: clampM365 });
 setters.sClassic = bindPair("sClassic", "sClassicN", "sClassic");
 setters.sGen     = bindPair("sGen", "sGenN", "sGen");
 setters.sActions = bindPair("sActions", "sActionsN", "sActions");
@@ -149,17 +175,22 @@ setters.gMakers  = bindPair("gMakers", "gMakersN", "gMakers");
 setters.gTestRuns= bindPair("gTestRuns", "gTestRunsN", "gTestRuns");
 setters.gTestCr  = bindPair("gTestCr", "gTestCrN", "gTestCr");
 setters.pDisc    = bindPair("pDisc", "pDiscN", "pDisc");
-bindNum("gLightMid", "gLightMid");
-bindNum("gMediumMid", "gMediumMid");
-bindNum("gHeavyMid", "gHeavyMid");
-bindNum("pPayg", "pPayg");
-bindNum("pPack", "pPack");
+for (const [id, key] of Object.entries(NUM_BINDINGS)) bindNum(id, key);
 
 function clampMix() {
   if (state.gLight + state.gMedium > 100) {
     state.gMedium = 100 - state.gLight;
     $("gMedium").value = state.gMedium;
     $("gMediumN").value = state.gMedium;
+  }
+}
+
+/* licensed users can never exceed active users */
+function clampM365() {
+  if (state.m365Users > state.users) {
+    state.m365Users = state.users;
+    $("inM365").value = Math.min(+$("inM365").max, state.m365Users);
+    $("inM365N").value = state.m365Users;
   }
 }
 
@@ -183,16 +214,75 @@ $("presets").addEventListener("click", e => {
 });
 function applyPreset(p) {
   Object.assign(state, p);
+  clampM365();
   for (const [k, set] of Object.entries(setters)) if (k in p) {
     // update inputs without recursive recalc storms — setters call recalc anyway
-    const rid = { users: "inUsers", sessions: "inSessions", m365: "inM365" }[k];
+    const rid = { users: "inUsers", sessions: "inSessions", m365Users: "inM365" }[k];
     const r = $(rid || k), n = $((rid || k) + "N");
-    if (r) r.value = Math.min(+r.max, p[k]);
-    if (n) n.value = p[k];
+    if (r) r.value = Math.min(+r.max, state[k]);
+    if (n) n.value = state[k];
   }
   // tier segmented control
   [...$("sTier").children].forEach(x => x.classList.toggle("active", +x.dataset.v === state.sTier));
+  syncNumInputs();
   recalc();
+}
+
+/* ---------- rate card lock / unlock ---------- */
+const RATE_KEYS = Object.keys(RATE_DEFAULTS);
+const RATE_INPUT_IDS = ["rClassic", "rGen", "rActions", "rGraph", "rFlow", "rPages", "rReason", "rgLightMid", "rgMediumMid", "rgHeavyMid"];
+let ratesLocked = true;
+
+function ratesCustom() {
+  return RATE_KEYS.some(k => state[k] !== RATE_DEFAULTS[k])
+      || Object.keys(MID_DEFAULTS).some(k => state[k] !== MID_DEFAULTS[k]);
+}
+
+function setRatesLocked(locked) {
+  ratesLocked = locked;
+  RATE_INPUT_IDS.forEach(id => { $(id).disabled = locked; });
+  $("btnUnlockRates").textContent = locked ? "🔒 Unlock to edit" : "🔓 Lock rate card";
+  $("rateCardPanel").classList.toggle("rates-unlocked", !locked);
+  updateRateUi();
+}
+
+$("btnUnlockRates").addEventListener("click", () => {
+  if (ratesLocked) {
+    const ok = window.confirm(
+      "⚠ Unlock the rate card?\n\n" +
+      "These numbers are Microsoft's published Copilot Credit rates. Editing them changes every " +
+      "calculation on this page, and exported reports will be flagged as using CUSTOM rates.\n\n" +
+      "Only continue if the published rates have actually changed (verify against the current " +
+      "Copilot Studio Licensing Guide)."
+    );
+    if (!ok) return;
+    setRatesLocked(false);
+    toast("🔓 Rate card unlocked — edit with care");
+  } else {
+    setRatesLocked(true);
+    toast("🔒 Rate card locked");
+  }
+});
+
+$("btnResetRates").addEventListener("click", () => {
+  Object.assign(state, RATE_DEFAULTS, MID_DEFAULTS);
+  syncNumInputs();
+  recalc();
+  toast("↺ Rate card reset to Microsoft list rates");
+});
+
+function updateRateUi() {
+  const custom = ratesCustom();
+  $("ratesWarn").hidden = !custom;
+  $("btnResetRates").hidden = ratesLocked && !custom;
+  // keep the per-feature labels in the Standard panel in sync with the live rate card
+  $("emClassic").textContent = state.rClassic + " cr";
+  $("emGen").textContent = state.rGen + " cr";
+  $("emActions").textContent = state.rActions + " cr";
+  $("emGraph").textContent = state.rGraph + " cr";
+  $("emFlow").textContent = state.rFlow + " cr / 100";
+  $("emPages").textContent = state.rPages + " cr / page";
+  $("emReason").textContent = "+" + state.rReason + " cr / 1K";
 }
 
 /* ---------- rendering ---------- */
@@ -204,7 +294,7 @@ function recalc() {
   $("gHeavy").textContent = heavy + "%";
 
   $("volumeNote").textContent =
-    `${fmtInt(c.totalSessions)} sessions/month · ${fmtInt(Math.round(state.users * state.m365 / 100))} of ${fmtInt(state.users)} users are M365 Copilot licensed (their Standard-harness B2E usage bills $0 — GitHub Copilot harness bills everyone).`;
+    `${fmtInt(c.totalSessions)} sessions/month · ${fmtInt(licensedUsers(state))} of ${fmtInt(state.users)} users are M365 Copilot licensed (their Standard-harness B2E usage bills $0 — GitHub Copilot harness bills everyone).`;
 
   $("stdPerSession").textContent = fmtCr(c.stdPerSess);
   $("stdMonthly").textContent = fmtCr(c.stdBillableCredits);
@@ -240,9 +330,10 @@ function recalc() {
 
   $("verdictNote").textContent = verdictText(c, ratio);
 
+  updateRateUi();
   drawComposition(c);
   drawScaleChart(c);
-  drawYearChart(c);
+  drawPhaseChart(c);
   renderPackOpt(c);
   saveHash();
 }
@@ -276,7 +367,7 @@ function setupCanvas(cv) {
   return { ctx, w, h };
 }
 const COLORS = {
-  std: "#38bdf8", ghcp: "#c084fc", muted: "#8b94b8", line: "#1d2547",
+  std: "#38bdf8", ghcp: "#c084fc", ghcpDev: "#e9d5ff", muted: "#8b94b8", line: "#1d2547", ok: "#34d399",
   palette: ["#38bdf8", "#34d399", "#fbbf24", "#f87171", "#a78bfa", "#f472b6", "#22d3ee", "#facc15"],
 };
 function fontPx(px) { return `${px}px "JetBrains Mono", monospace`; }
@@ -286,9 +377,9 @@ function drawComposition(c) {
   const { ctx, w, h } = setupCanvas($("chartComp"));
   const s = state;
   const stdParts = [
-    ["Classic", s.sClassic * 1], ["Generative", s.sGen * 2], ["Actions", s.sActions * 5],
-    ["Graph", s.sGraph * 10], ["Flows", s.sFlow * 13 / 100], ["AI tools", s.sTokens * s.sTier],
-    ["Reasoning", s.sReason * 10], ["Pages", s.sPages * 8],
+    ["Classic", s.sClassic * s.rClassic], ["Generative", s.sGen * s.rGen], ["Actions", s.sActions * s.rActions],
+    ["Graph", s.sGraph * s.rGraph], ["Flows", s.sFlow * s.rFlow / 100], ["AI tools", s.sTokens * s.sTier],
+    ["Reasoning", s.sReason * s.rReason], ["Pages", s.sPages * s.rPages],
   ].filter(p => p[1] > 0);
   const heavy = Math.max(0, 100 - s.gLight - s.gMedium);
   const perTask = ghcpPerTaskCredits(s);
@@ -346,7 +437,7 @@ function drawScaleChart(c) {
   const pts = [];
   for (let i = 0; i <= N; i++) {
     const sess = maxSess * i / N;
-    const stdCredits = c.stdPerSess * sess * (1 - state.m365 / 100);
+    const stdCredits = c.stdPerSess * sess * c.unlicensedShare;
     const ghcpCredits = c.ghcpPerTask * sess + c.ghcpDevCredits;
     pts.push({
       sess,
@@ -401,50 +492,78 @@ function drawScaleChart(c) {
   ctx.fillStyle = COLORS.ghcp; ctx.fillText("● GitHub Copilot", pad.l + 96, pad.t + 10);
 }
 
-/* 12-month cumulative projection */
-function drawYearChart(c) {
-  const { ctx, w, h } = setupCanvas($("chartYear"));
-  const pad = { l: 58, r: 16, t: 14, b: 34 };
-  const months = [...Array(12).keys()];
-  let stdCum = 0, ghcpCum = 0;
-  const rows = months.map(m => {
-    stdCum += c.stdBuy.cost;
-    // dev burn 2x during first 3 months (build phase)
-    const devMult = m < 3 ? 2 : 1;
-    const ghcpCredits = c.ghcpRuntimeCredits + c.ghcpDevCredits * devMult;
-    ghcpCum += bestBuy(ghcpCredits, c.paygRate, c.packPrice).cost;
-    return { std: stdCum, ghcp: ghcpCum };
-  });
-  const maxY = Math.max(rows[11].std, rows[11].ghcp, 10);
-  const X = m => pad.l + (w - pad.l - pad.r) * m / 11;
+/* build phase vs steady state: what a dev/test month costs vs a
+   typical production month, per harness. Standard authoring is free
+   until publish; GHCP meters development from the first build action
+   and keeps burning maker test credits after launch. */
+function drawPhaseChart(c) {
+  const { ctx, w, h } = setupCanvas($("chartPhase"));
+  const pad = { l: 58, r: 16, t: 30, b: 48 };
+
+  const buildStd = 0; // Standard harness: authoring, previewing and testing are free until publish
+  const buildGhcp = bestBuy(c.ghcpDevCredits, c.paygRate, c.packPrice).cost;
+  const steadyStd = c.stdBuy.cost;
+  const steadyGhcp = c.ghcpBuy.cost;
+  const devShare = c.ghcpTotalCredits > 0 ? c.ghcpDevCredits / c.ghcpTotalCredits : 0;
+
+  const maxY = Math.max(buildGhcp, steadyStd, steadyGhcp, 10);
   const Y = v => h - pad.b - (h - pad.t - pad.b) * v / maxY;
 
+  // grid
   ctx.strokeStyle = COLORS.line; ctx.fillStyle = COLORS.muted; ctx.font = fontPx(10); ctx.lineWidth = 1;
   for (let g = 0; g <= 4; g++) {
     const v = maxY * g / 4, y = Y(v);
     ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
     ctx.textAlign = "right"; ctx.fillText(fmtMoney(v), pad.l - 6, y + 3);
   }
-  months.forEach(m => {
-    if (m % 2 === 0) { ctx.textAlign = "center"; ctx.fillText("M" + (m + 1), X(m), h - pad.b + 16); }
+
+  const groups = [
+    { label: "🛠 Dev / test month", sub: "before launch", std: buildStd, ghcp: buildGhcp, devFrac: buildGhcp > 0 ? 1 : 0 },
+    { label: "🚀 Steady-state month", sub: "in production", std: steadyStd, ghcp: steadyGhcp, devFrac: devShare },
+  ];
+  const groupW = (w - pad.l - pad.r) / groups.length;
+  const barW = Math.min(64, groupW * 0.28);
+
+  groups.forEach((g, gi) => {
+    const cx = pad.l + groupW * gi + groupW / 2;
+    const bars = [
+      { x: cx - barW - 8, v: g.std, color: COLORS.std, devFrac: 0, zero: "$0 · free to build" },
+      { x: cx + 8, v: g.ghcp, color: COLORS.ghcp, devFrac: g.devFrac, zero: "$0" },
+    ];
+    bars.forEach(b => {
+      const y = Y(b.v), bh = h - pad.b - y;
+      if (b.v > 0 && bh > 0.5) {
+        const devH = bh * b.devFrac;
+        // runtime portion
+        if (bh - devH > 0.5) {
+          ctx.fillStyle = b.color;
+          ctx.beginPath(); ctx.roundRect(b.x, y + devH, barW, bh - devH, 4); ctx.fill();
+        }
+        // dev-burn portion on top (lighter)
+        if (devH > 0.5) {
+          ctx.fillStyle = COLORS.ghcpDev;
+          ctx.beginPath(); ctx.roundRect(b.x, y, barW, devH, 4); ctx.fill();
+        }
+      } else {
+        // zero bar: draw a baseline stub so it reads as "measured, and it's $0"
+        ctx.fillStyle = b.color;
+        ctx.fillRect(b.x, h - pad.b - 2, barW, 2);
+      }
+      ctx.font = fontPx(10.5); ctx.textAlign = "center";
+      ctx.fillStyle = b.v > 0 ? "#fff" : COLORS.ok;
+      ctx.fillText(b.v > 0 ? fmtMoney(b.v) : b.zero, b.x + barW / 2, Y(b.v) - 6);
+    });
+    ctx.fillStyle = COLORS.muted; ctx.font = fontPx(11); ctx.textAlign = "center";
+    ctx.fillText(g.label, cx, h - pad.b + 18);
+    ctx.font = fontPx(9.5);
+    ctx.fillText(g.sub, cx, h - pad.b + 32);
   });
 
-  const area = (key, color, fill) => {
-    ctx.beginPath();
-    rows.forEach((r, i) => i ? ctx.lineTo(X(i), Y(r[key])) : ctx.moveTo(X(0), Y(r[key])));
-    ctx.lineTo(X(11), h - pad.b); ctx.lineTo(X(0), h - pad.b); ctx.closePath();
-    ctx.fillStyle = fill; ctx.fill();
-    ctx.strokeStyle = color; ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    rows.forEach((r, i) => i ? ctx.lineTo(X(i), Y(r[key])) : ctx.moveTo(X(0), Y(r[key])));
-    ctx.stroke();
-  };
-  area("ghcp", COLORS.ghcp, "rgba(192,132,252,.10)");
-  area("std", COLORS.std, "rgba(56,189,248,.10)");
-
-  ctx.font = fontPx(11); ctx.textAlign = "left";
-  ctx.fillStyle = COLORS.std; ctx.fillText("● Std yr1: " + fmtMoney(rows[11].std), pad.l + 8, pad.t + 10);
-  ctx.fillStyle = COLORS.ghcp; ctx.fillText("● GHCP yr1: " + fmtMoney(rows[11].ghcp), pad.l + 160, pad.t + 10);
+  // legend
+  ctx.font = fontPx(10.5); ctx.textAlign = "left";
+  ctx.fillStyle = COLORS.std; ctx.fillText("● Standard", pad.l + 8, 12);
+  ctx.fillStyle = COLORS.ghcp; ctx.fillText("● GitHub Copilot runtime", pad.l + 92, 12);
+  ctx.fillStyle = COLORS.ghcpDev; ctx.fillText("● GHCP dev burn", pad.l + 280, 12);
 }
 
 /* pack optimizer panel */
@@ -469,7 +588,7 @@ function renderPackOpt(c) {
   el.innerHTML = block("🧱 Standard harness", "std-c", c.stdBuy) + block("🐙 GitHub Copilot harness", "ghcp-c", c.ghcpBuy);
 }
 
-/* ---------- share / export ---------- */
+/* ---------- share ---------- */
 const HASH_KEYS = Object.keys(state);
 function saveHash() {
   const params = new URLSearchParams();
@@ -506,39 +625,6 @@ $("btnShare").addEventListener("click", async () => {
   }
 });
 
-$("btnExport").addEventListener("click", () => {
-  const c = compute(state);
-  const out = {
-    generated: new Date().toISOString(),
-    inputs: { ...state },
-    results: {
-      totalSessionsPerMonth: c.totalSessions,
-      standardHarness: {
-        creditsPerSession: c.stdPerSess,
-        billableCreditsPerMonth: Math.round(c.stdBillableCredits),
-        creditsAbsorbedByM365Licenses: Math.round(c.stdFreeCredits),
-        monthlyCostUSD: +c.stdBuy.cost.toFixed(2),
-        procurement: buyLabel(c.stdBuy),
-      },
-      githubCopilotHarness: {
-        creditsPerTaskWeighted: c.ghcpPerTask,
-        runtimeCreditsPerMonth: Math.round(c.ghcpRuntimeCredits),
-        devBurnCreditsPerMonth: Math.round(c.ghcpDevCredits),
-        monthlyCostUSD: +c.ghcpBuy.cost.toFixed(2),
-        procurement: buyLabel(c.ghcpBuy),
-      },
-    },
-    disclaimer: "Planning estimate only, not a billing commitment. Verify rates against the current Microsoft Copilot Studio Licensing Guide.",
-  };
-  const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "copilot-studio-estimate.json";
-  a.click();
-  URL.revokeObjectURL(a.href);
-  toast("✓ Estimate exported");
-});
-
 /* ---------- report export: PDF + copy/paste ---------- */
 const TIER_NAMES = { 0.1: "Basic (0.1 cr/1K tok)", 1.5: "Standard (1.5 cr/1K tok)", 10: "Premium (10 cr/1K tok)" };
 
@@ -570,7 +656,7 @@ function reportModel() {
     assumptions: [
       ["Active users / callers", fmtInt(s.users)],
       ["Sessions per user / month", fmtInt(s.sessions)],
-      ["Users with M365 Copilot license", s.m365 + "%"],
+      ["Users with M365 Copilot license", `${fmtInt(licensedUsers(s))} of ${fmtInt(s.users)}`],
       ["Std per-session mix: classic / generative / actions / graph", `${s.sClassic} / ${s.sGen} / ${s.sActions} / ${s.sGraph}`],
       ["Std: agent flow actions per session", fmtInt(s.sFlow)],
       ["Std: AI-tool tokens per session", `${s.sTokens}K @ ${TIER_NAMES[s.sTier] || s.sTier + " cr/1K tok"}`],
@@ -579,6 +665,9 @@ function reportModel() {
       ["GHCP tier midpoints: light / medium / heavy", `${s.gLightMid} / ${s.gMediumMid} / ${s.gHeavyMid} cr`],
       ["GHCP development burn", `${s.gMakers} maker${s.gMakers === 1 ? "" : "s"} × ${s.gTestRuns} test runs × ${s.gTestCr} cr`],
       ["Pricing", `PAYG $${s.pPayg}/credit · pack $${s.pPack}/25K credits · ${s.pDisc}% discount`],
+      ["Rate card", ratesCustom()
+        ? `⚠ CUSTOM — classic ${s.rClassic} / generative ${s.rGen} / action ${s.rActions} / graph ${s.rGraph} / flow ${s.rFlow}/100 / page ${s.rPages} / reasoning ${s.rReason}/1K`
+        : "Microsoft list rates (Aug 2026)"],
     ],
     disclaimer: "Planning estimate only — not a billing commitment. Verify rates against the current Microsoft Copilot Studio Licensing Guide.",
   };
@@ -671,14 +760,30 @@ ${tableRows(r.assumptions, ["Input", "Value"])}
 </html>`;
 }
 
+function downloadFile(content, type, name) {
+  const blob = new Blob([content], { type });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 $("btnPdf").addEventListener("click", () => {
   saveHash();
-  const w = window.open("", "_blank", "noopener");
-  if (!w) { toast("Pop-up blocked — allow pop-ups to export the PDF report"); return; }
-  w.document.open();
-  w.document.write(reportHtml());
-  w.document.close();
-  toast("✓ Report opened — use Print → Save as PDF");
+  const html = reportHtml();
+  // note: no "noopener" here — window.open() with noopener returns null,
+  // which made the report window unreachable (the original bug)
+  const w = window.open("", "_blank");
+  if (w) {
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    toast("✓ Report opened — use Print → Save as PDF");
+  } else {
+    downloadFile(html, "text/html", "copilot-studio-estimate.html");
+    toast("Pop-up blocked — report downloaded, open it and Print → Save as PDF");
+  }
 });
 
 $("btnCopy").addEventListener("click", async () => {
@@ -686,15 +791,10 @@ $("btnCopy").addEventListener("click", async () => {
   const md = reportMarkdown();
   try {
     await navigator.clipboard.writeText(md);
-    toast("✓ Report copied — paste anywhere (Markdown)");
+    toast("✓ Markdown copied — paste anywhere");
   } catch {
     // clipboard unavailable (permissions / non-secure context) — download instead
-    const blob = new Blob([md], { type: "text/markdown" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "copilot-studio-estimate.md";
-    a.click();
-    URL.revokeObjectURL(a.href);
+    downloadFile(md, "text/markdown", "copilot-studio-estimate.md");
     toast("Clipboard unavailable — report downloaded as Markdown");
   }
 });
@@ -715,5 +815,6 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 
 /* ---------- init ---------- */
 window.addEventListener("resize", () => recalc());
+setRatesLocked(true);
 if (!loadHash()) applyPreset({ ...PRESETS.employee });
 })();
