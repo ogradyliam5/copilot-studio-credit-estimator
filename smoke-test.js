@@ -17,6 +17,7 @@ function makeEl(id) {
     id, value: "0", min: "0", max: "100000", textContent: "", innerHTML: "",
     className: "", dataset: {}, style: {}, children: [],
     clientWidth: 640, width: 640, height: 360, offsetWidth: 640,
+    disabled: false, hidden: false,
     classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
     addEventListener(ev, fn) { (listeners[ev] ||= []).push(fn); },
     dispatch(ev, e) { return (listeners[ev] || []).map(f => f(e || { target: el })); },
@@ -33,8 +34,10 @@ global.document = {
   createElement: id => makeEl(id),
 };
 let openedReportHtml = null;
+let confirmCalls = 0;
 global.window = {
   addEventListener() {}, devicePixelRatio: 1,
+  confirm: () => { confirmCalls++; return true; },
   open: () => ({ document: { open() {}, write(html) { openedReportHtml = html; }, close() {} } }),
 };
 global.history = { replaceState() {} };
@@ -54,6 +57,12 @@ const missing = [...new Set(wanted)].filter(id => !src.includes(`id="${id}"`));
 if (missing.length) { console.error("MISSING IDS IN HTML:", missing); process.exit(1); }
 console.log("✓ all", new Set(wanted).size, "element IDs referenced by app.js exist in index.html");
 
+// the JSON export button was removed on purpose — make sure it doesn't come back half-wired
+if (src.includes('id="btnExport"') || app.includes("btnExport")) {
+  console.error("✗ btnExport should no longer exist"); process.exit(1);
+}
+console.log("✓ export (JSON) button removed");
+
 require("./app.js");
 console.log("✓ app.js executed without throwing");
 
@@ -72,10 +81,14 @@ const expPerSess = 1 * 1 + 4 * 2 + 2 * 5 + 3 * 10; // 49
 console.log("expected std credits/session:", expPerSess, "rendered:", ids.get("stdPerSession").textContent);
 if (ids.get("stdPerSession").textContent !== "49") { console.error("✗ per-session mismatch"); fail++; }
 
-// 6000 sessions × 49 = 294,000 total; 60% unlicensed = 176,400 billable
+// 6000 sessions × 49 = 294,000 total; 200 of 500 users licensed → 60% unlicensed = 176,400 billable
 const billable = 294000 * 0.6;
 console.log("expected billable credits:", billable, "rendered:", ids.get("stdMonthly").textContent);
 if (ids.get("stdMonthly").textContent !== "176.4K") { console.error("✗ billable mismatch"); fail++; }
+
+// licensed-user count is absolute now — verify the volume note reflects it
+if (!ids.get("volumeNote").textContent.includes("200 of 500 users")) { console.error("✗ volume note should say '200 of 500 users'"); fail++; }
+else console.log("✓ volume note reports absolute licensed-user count");
 
 // GHCP: 60/30/10 mix × (200/400/700) = 120+120+70 = 310 cr/task; ×6000 = 1.86M runtime; dev 2×60×150=18K
 console.log("expected ghcp cr/task: 310 rendered:", ids.get("ghcpPerSession").textContent);
@@ -92,6 +105,38 @@ if (vStd !== "$1,414") { console.error("✗ std pack-optimizer cost mismatch"); 
 const vG = ids.get("vGhcpCost").textContent;
 console.log("expected ghcp cost $15,030 rendered:", vG);
 if (vG !== "$15,030") { console.error("✗ ghcp cost mismatch"); fail++; }
+
+/* ---------- rate card lock / unlock ---------- */
+// rate inputs start locked
+if (!ids.get("rGen").disabled) { console.error("✗ rate inputs should start disabled (locked)"); fail++; }
+else console.log("✓ rate card starts locked");
+
+// unlocking requires confirmation
+ids.get("btnUnlockRates").dispatch("click");
+if (confirmCalls !== 1) { console.error("✗ unlock should ask for confirmation"); fail++; }
+else console.log("✓ unlock asks for confirmation");
+if (ids.get("rGen").disabled) { console.error("✗ rate inputs should be enabled after unlock"); fail++; }
+else console.log("✓ rate inputs enabled after unlock");
+
+// edit generative rate 2 → 3: per-session becomes 1 + 4*3 + 10 + 30 = 53
+ids.get("rGen").value = "3";
+ids.get("rGen").dispatch("input");
+console.log("expected std credits/session after rate edit: 53 rendered:", ids.get("stdPerSession").textContent);
+if (ids.get("stdPerSession").textContent !== "53") { console.error("✗ edited rate not applied"); fail++; }
+if (ids.get("ratesWarn").hidden) { console.error("✗ custom-rates warning should be visible"); fail++; }
+else console.log("✓ custom-rates warning shown");
+
+// reset restores list rates
+ids.get("btnResetRates").dispatch("click");
+console.log("expected std credits/session after reset: 49 rendered:", ids.get("stdPerSession").textContent);
+if (ids.get("stdPerSession").textContent !== "49") { console.error("✗ reset did not restore list rates"); fail++; }
+if (!ids.get("ratesWarn").hidden) { console.error("✗ warning should hide after reset"); fail++; }
+else console.log("✓ reset restores list rates and hides warning");
+
+// re-lock
+ids.get("btnUnlockRates").dispatch("click");
+if (!ids.get("rGen").disabled) { console.error("✗ rate inputs should be disabled after re-lock"); fail++; }
+else console.log("✓ rate card re-locked");
 
 /* ---------- report export smoke tests ---------- */
 (async () => {
@@ -112,7 +157,17 @@ if (vG !== "$15,030") { console.error("✗ ghcp cost mismatch"); fail++; }
     if (!ok) fail++;
   }
 
-  // Copy report: click btnCopy and verify Markdown landed on the clipboard
+  // PDF report must survive a blocked pop-up (window.open returning null) by downloading instead
+  openedReportHtml = null;
+  const realOpen = global.window.open;
+  global.window.open = () => null;
+  let threw = false;
+  try { ids.get("btnPdf").dispatch("click"); } catch { threw = true; }
+  global.window.open = realOpen;
+  console.log((threw ? "✗" : "✓"), "pdf report: pop-up-blocked fallback doesn't throw");
+  if (threw) fail++;
+
+  // Copy Markdown: click btnCopy and verify Markdown landed on the clipboard
   await Promise.all(ids.get("btnCopy").dispatch("click"));
   const mdChecks = [
     ["# Copilot Studio Credit Estimate", "markdown H1 present"],
@@ -120,10 +175,12 @@ if (vG !== "$15,030") { console.error("✗ ghcp cost mismatch"); fail++; }
     ["| Credits per session / task | 49 | 310 (weighted) |", "markdown per-session row correct"],
     ["## Assumptions", "markdown assumptions section present"],
     ["| Active users / callers | 500 |", "markdown users assumption correct"],
+    ["| Users with M365 Copilot license | 200 of 500 |", "markdown licensed-users assumption correct"],
+    ["| Rate card | Microsoft list rates", "markdown rate-card provenance row present"],
   ];
   for (const [needle, label] of mdChecks) {
     const ok = copiedText && copiedText.includes(needle);
-    console.log((ok ? "✓" : "✗"), "copy report:", label);
+    console.log((ok ? "✓" : "✗"), "copy markdown:", label);
     if (!ok) fail++;
   }
 
