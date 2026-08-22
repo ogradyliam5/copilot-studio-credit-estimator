@@ -185,13 +185,16 @@ function clampMix() {
   }
 }
 
-/* licensed users can never exceed active users */
+/* licensed users can never exceed active users — cap the inputs themselves
+   so the slider physically can't go past the user count */
 function clampM365() {
+  $("inM365").max = state.users;
+  $("inM365N").max = state.users;
   if (state.m365Users > state.users) {
     state.m365Users = state.users;
-    $("inM365").value = Math.min(+$("inM365").max, state.m365Users);
     $("inM365N").value = state.m365Users;
   }
+  $("inM365").value = Math.min(state.m365Users, state.users);
 }
 
 /* AI tool tier segmented control */
@@ -625,7 +628,7 @@ $("btnShare").addEventListener("click", async () => {
   }
 });
 
-/* ---------- report export: PDF + copy/paste ---------- */
+/* ---------- report export: copy as Markdown ---------- */
 const TIER_NAMES = { 0.1: "Basic (0.1 cr/1K tok)", 1.5: "Standard (1.5 cr/1K tok)", 10: "Premium (10 cr/1K tok)" };
 
 function reportModel() {
@@ -705,61 +708,6 @@ function reportMarkdown() {
   return lines.join("\n");
 }
 
-const escHtml = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
-/* Self-contained, print-optimized HTML report */
-function reportHtml() {
-  const r = reportModel();
-  const tableRows = (rows, head) => `
-    <table>
-      <thead><tr>${head.map(h => `<th>${escHtml(h)}</th>`).join("")}</tr></thead>
-      <tbody>${rows.map(row => `<tr>${row.map((cell, i) => i === 0 ? `<th scope="row">${escHtml(cell)}</th>` : `<td>${escHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody>
-    </table>`;
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>${escHtml(r.title)}</title>
-<style>
-  @page { margin: 18mm; }
-  * { box-sizing: border-box; }
-  body { font: 13px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1a1f36; margin: 32px auto; max-width: 760px; padding: 0 16px; }
-  h1 { font-size: 22px; margin: 0 0 2px; }
-  h2 { font-size: 15px; margin: 26px 0 8px; border-bottom: 2px solid #e2e6f0; padding-bottom: 4px; }
-  .sub { color: #5a6379; margin: 0 0 2px; }
-  .meta { color: #8a91a5; font-size: 11.5px; margin: 0 0 6px; }
-  table { border-collapse: collapse; width: 100%; margin: 6px 0; }
-  th, td { border: 1px solid #d7dce8; padding: 6px 10px; text-align: left; vertical-align: top; }
-  thead th { background: #f1f4fa; font-size: 12px; }
-  tbody th[scope="row"] { font-weight: 600; background: #fafbfe; width: 44%; }
-  tr.total th, tr.total td { font-weight: 700; background: #eef6ff; }
-  .verdict { background: #f6f8fc; border-left: 4px solid #4f7cff; padding: 10px 14px; margin: 12px 0; }
-  .disclaimer { color: #8a91a5; font-size: 11px; margin-top: 22px; border-top: 1px solid #e2e6f0; padding-top: 10px; }
-  a { color: #2b5fd9; word-break: break-all; }
-  .noprint { margin: 14px 0; }
-  .noprint button { font: inherit; padding: 8px 16px; cursor: pointer; }
-  @media print { .noprint { display: none; } body { margin: 0; } }
-</style>
-</head>
-<body>
-<h1>${escHtml(r.title)}</h1>
-<p class="sub">${escHtml(r.subtitle)}</p>
-<p class="meta">Generated ${escHtml(r.generated)}</p>
-<div class="noprint"><button onclick="window.print()">🖨 Print / Save as PDF</button></div>
-<h2>Comparison</h2>
-${tableRows(r.comparison, ["", "🧱 Standard harness", "🐙 GitHub Copilot harness"]).replace(/<tr><th scope="row">Monthly cost/, '<tr class="total"><th scope="row">Monthly cost')}
-<p><b>Cost multiple:</b> ${escHtml(r.ratioLabel)}</p>
-<div class="verdict"><b>Verdict:</b> ${escHtml(r.verdict)}</div>
-<h2>Assumptions</h2>
-${tableRows(r.assumptions, ["Input", "Value"])}
-<h2>Scenario link</h2>
-<p><a href="${escHtml(r.link)}">${escHtml(r.link)}</a></p>
-<p class="disclaimer">${escHtml(r.disclaimer)}</p>
-<script>window.addEventListener("load", () => setTimeout(() => window.print(), 250));<\/script>
-</body>
-</html>`;
-}
-
 function downloadFile(content, type, name) {
   const blob = new Blob([content], { type });
   const a = document.createElement("a");
@@ -768,23 +716,6 @@ function downloadFile(content, type, name) {
   a.click();
   URL.revokeObjectURL(a.href);
 }
-
-$("btnPdf").addEventListener("click", () => {
-  saveHash();
-  const html = reportHtml();
-  // note: no "noopener" here — window.open() with noopener returns null,
-  // which made the report window unreachable (the original bug)
-  const w = window.open("", "_blank");
-  if (w) {
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-    toast("✓ Report opened — use Print → Save as PDF");
-  } else {
-    downloadFile(html, "text/html", "copilot-studio-estimate.html");
-    toast("Pop-up blocked — report downloaded, open it and Print → Save as PDF");
-  }
-});
 
 $("btnCopy").addEventListener("click", async () => {
   saveHash();

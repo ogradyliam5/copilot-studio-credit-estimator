@@ -51,17 +51,12 @@ This tool lets you put numbers on that trade-off *before* the invoice does.
   before launch vs a typical production month, with the GHCP ongoing dev burn broken out),
   **credit composition breakdown**, and a **capability-gap matrix** for the things money can't buy
 - **Shareable scenarios** — the full input state (including any custom rates) is encoded in the URL;
-  export any estimate as a print-ready **PDF report** or a copy-paste **Markdown report**
+  export any estimate as a copy-paste **Markdown report**
 
 ## Exporting a report
 
-Two ways to get an estimate out of the tool, both in the header:
-
-- **🖨 PDF report** — opens a clean, print-optimized report (comparison table, cost multiple,
-  verdict, full assumptions and the scenario link) and triggers your browser's
-  **Print → Save as PDF** dialog. If pop-ups are blocked, the report downloads as an HTML file
-  instead — open it and print to PDF from there.
-- **📋 Copy Markdown** — copies the same report to the clipboard as **Markdown** that pastes cleanly
+- **📋 Copy Markdown** — copies the full report (comparison table, cost multiple, verdict,
+  assumptions and the scenario link) to the clipboard as **Markdown** that pastes cleanly
   into email, Teams, Word/OneNote, GitHub issues and wikis. If the clipboard isn't available, the
   report downloads as a `.md` file instead.
 

@@ -63,6 +63,18 @@ if (src.includes('id="btnExport"') || app.includes("btnExport")) {
 }
 console.log("✓ export (JSON) button removed");
 
+// the PDF report was removed on purpose too
+if (src.includes('id="btnPdf"') || app.includes("btnPdf") || app.includes("reportHtml")) {
+  console.error("✗ btnPdf / reportHtml should no longer exist"); process.exit(1);
+}
+console.log("✓ PDF report button removed");
+
+// assets must be cache-busted so a new index.html can never pair with a stale cached app.js
+if (!/src="app\.js\?v=\d+"/.test(src) || !/href="styles\.css\?v=\d+"/.test(src)) {
+  console.error("✗ app.js / styles.css must use versioned (cache-busted) URLs"); process.exit(1);
+}
+console.log("✓ asset URLs are cache-busted (?v=N)");
+
 require("./app.js");
 console.log("✓ app.js executed without throwing");
 
@@ -138,35 +150,22 @@ ids.get("btnUnlockRates").dispatch("click");
 if (!ids.get("rGen").disabled) { console.error("✗ rate inputs should be disabled after re-lock"); fail++; }
 else console.log("✓ rate card re-locked");
 
+/* ---------- M365 licensed users can never exceed active users ---------- */
+// the slider/number max must track the user count so it can't even be dragged past it
+if (String(ids.get("inM365").max) !== "500" || String(ids.get("inM365N").max) !== "500") {
+  console.error("✗ inM365 max should track users (500), got", ids.get("inM365").max, ids.get("inM365N").max); fail++;
+} else console.log("✓ M365 input max tracks active users");
+// typing a larger value still clamps
+ids.get("inM365N").value = "800";
+ids.get("inM365N").dispatch("input");
+if (String(ids.get("inM365N").value) !== "500") { console.error("✗ typing 800 licensed users should clamp to 500, got", ids.get("inM365N").value); fail++; }
+else console.log("✓ typed licensed-user count clamps to active users");
+// restore for report checks below
+ids.get("inM365N").value = "200";
+ids.get("inM365N").dispatch("input");
+
 /* ---------- report export smoke tests ---------- */
 (async () => {
-  // PDF report: click btnPdf and verify the print window received a full report
-  ids.get("btnPdf").dispatch("click");
-  const pdfChecks = [
-    ["<!DOCTYPE html>", "report is a full HTML document"],
-    ["Copilot Studio Credit Estimate", "report title present"],
-    ["$1,414", "standard monthly cost in report"],
-    ["$15,030", "ghcp monthly cost in report"],
-    ["176.4K", "billable credits in report"],
-    ["window.print()", "print trigger present"],
-    ["Assumptions", "assumptions section present"],
-  ];
-  for (const [needle, label] of pdfChecks) {
-    const ok = openedReportHtml && openedReportHtml.includes(needle);
-    console.log((ok ? "✓" : "✗"), "pdf report:", label);
-    if (!ok) fail++;
-  }
-
-  // PDF report must survive a blocked pop-up (window.open returning null) by downloading instead
-  openedReportHtml = null;
-  const realOpen = global.window.open;
-  global.window.open = () => null;
-  let threw = false;
-  try { ids.get("btnPdf").dispatch("click"); } catch { threw = true; }
-  global.window.open = realOpen;
-  console.log((threw ? "✗" : "✓"), "pdf report: pop-up-blocked fallback doesn't throw");
-  if (threw) fail++;
-
   // Copy Markdown: click btnCopy and verify Markdown landed on the clipboard
   await Promise.all(ids.get("btnCopy").dispatch("click"));
   const mdChecks = [
