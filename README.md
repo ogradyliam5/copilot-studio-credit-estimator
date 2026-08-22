@@ -34,31 +34,36 @@ This tool lets you put numbers on that trade-off *before* the invoice does.
   (5 cr), tenant graph grounding (10 cr), agent flow actions (13 cr / 100), AI tools
   (0.1 / 1.5 / 10 cr per 1K tokens), reasoning-model surcharge (+10 cr / 1K tokens),
   content processing (8 cr / page)
-- **M365 Copilot license inclusion** — slider for the % of licensed users whose B2E Standard-harness
-  usage bills $0
+- **Editable rate card** — the rate card is split into clearly separated Standard-harness and
+  GitHub-Copilot-harness groups, and every rate can be edited if Microsoft's published rates change.
+  It's **locked by default**: unlocking requires an explicit confirmation, a warning banner is shown
+  whenever custom rates are in effect, exported reports are flagged as using CUSTOM rates, and a
+  one-click reset restores the list rates
+- **M365 Copilot license inclusion** — enter the **number of licensed users** (capped at your active
+  users) whose B2E Standard-harness usage bills $0
 - **GitHub Copilot harness task tiers** — light (100–300), medium (300–500), heavy (>500) with a
   configurable complexity mix and adjustable tier midpoints
 - **Development burn** — GHCP bills authoring, previewing, testing and eval generation; model your
   makers × test runs × credits per run
 - **Pack optimizer** — cheapest blend of prepaid 25K-credit packs ($200) + PAYG ($0.01/credit)
   overflow, with a warning when you'd trip the **125% overage enforcement** threshold
-- **Break-even scaling chart**, **12-month cumulative projection** (dev burn front-loaded 2× in
-  months 1–3), **credit composition breakdown**, and a **capability-gap matrix** for the things
-  money can't buy
-- **Shareable scenarios** — the full input state is encoded in the URL; export any estimate as a
-  print-ready **PDF report**, a copy-paste **Markdown report**, or **JSON**
+- **Break-even scaling chart**, a **build-phase vs steady-state chart** (what a dev/test month costs
+  before launch vs a typical production month, with the GHCP ongoing dev burn broken out),
+  **credit composition breakdown**, and a **capability-gap matrix** for the things money can't buy
+- **Shareable scenarios** — the full input state (including any custom rates) is encoded in the URL;
+  export any estimate as a print-ready **PDF report** or a copy-paste **Markdown report**
 
 ## Exporting a report
 
-Three ways to get an estimate out of the tool, all in the header:
+Two ways to get an estimate out of the tool, both in the header:
 
 - **🖨 PDF report** — opens a clean, print-optimized report (comparison table, cost multiple,
   verdict, full assumptions and the scenario link) and triggers your browser's
-  **Print → Save as PDF** dialog. Easy to read, easy to attach to an email or a business case.
-- **📋 Copy report** — copies the same report to the clipboard as **Markdown** that pastes cleanly
+  **Print → Save as PDF** dialog. If pop-ups are blocked, the report downloads as an HTML file
+  instead — open it and print to PDF from there.
+- **📋 Copy Markdown** — copies the same report to the clipboard as **Markdown** that pastes cleanly
   into email, Teams, Word/OneNote, GitHub issues and wikis. If the clipboard isn't available, the
   report downloads as a `.md` file instead.
-- **⬇ Export** — downloads the raw estimate as **JSON** for further processing.
 
 Every report embeds the scenario link, so anyone reading it can reopen the exact same inputs.
 
@@ -72,8 +77,8 @@ cd copilot-studio-credit-estimator
 python3 -m http.server 8000   # or just open index.html
 ```
 
-Run the headless smoke tests (validates the calculation engine and the report exports against
-hand-computed expectations):
+Run the headless smoke tests (validates the calculation engine, the rate-card lock/unlock flow and
+the report exports against hand-computed expectations):
 
 ```bash
 node smoke-test.js
